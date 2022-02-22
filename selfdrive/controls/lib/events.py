@@ -1,5 +1,6 @@
+import capnp
 from enum import IntEnum
-from typing import Dict, Union, Callable, List, Optional
+from typing import Dict, Union, Callable, List, Optional, cast
 
 from cereal import log, car
 import cereal.messaging as messaging
@@ -65,7 +66,7 @@ class Events:
   def any(self, event_type: str) -> bool:
     return any(event_type in EVENTS.get(e, {}) for e in self.events)
 
-  def create_alerts(self, event_types: List[str], callback_args=None):
+  def create_alerts(self, event_types: List[str], callback_args: Optional[List]=None) -> List['Alert']:
     if callback_args is None:
       callback_args = []
 
@@ -84,11 +85,11 @@ class Events:
             ret.append(alert)
     return ret
 
-  def add_from_msg(self, events):
+  def add_from_msg(self, events: List[capnp.lib.capnp._DynamicStructBuilder]) -> None:
     for e in events:
       self.events.append(e.name.raw)
 
-  def to_msg(self):
+  def to_msg(self) -> List[capnp.lib.capnp._DynamicStructBuilder]:
     ret = []
     for event_name in self.events:
       event = car.CarEvent.new_message()
@@ -132,7 +133,7 @@ class Alert:
     return f"{self.alert_text_1}/{self.alert_text_2} {self.priority} {self.visual_alert} {self.audible_alert}"
 
   def __gt__(self, alert2) -> bool:
-    return self.priority > alert2.priority
+    return cast(bool, self.priority > alert2.priority)
 
 
 class NoEntryAlert(Alert):
@@ -263,8 +264,6 @@ EVENTS: Dict[int, Dict[str, Union[Alert, AlertCallbackType]]] = {
   # ********** events with no alerts **********
 
   EventName.stockFcw: {},
-
-  EventName.lkasDisabled: {},
 
   # ********** events only containing alerts displayed in all states **********
 
@@ -821,6 +820,11 @@ EVENTS: Dict[int, Dict[str, Union[Alert, AlertCallbackType]]] = {
   EventName.lowSpeedLockout: {
     ET.PERMANENT: NormalPermanentAlert("Cruise Fault: Restart the car to engage"),
     ET.NO_ENTRY: NoEntryAlert("Cruise Fault: Restart the Car"),
+  },
+
+  EventName.lkasDisabled: {
+    ET.PERMANENT: NormalPermanentAlert("LKAS Disabled: Enable LKAS to engage"),
+    ET.NO_ENTRY: NoEntryAlert("LKAS Disabled"),
   },
 
 }

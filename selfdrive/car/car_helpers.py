@@ -1,4 +1,8 @@
 import os
+
+import capnp
+from typing import Dict, List, Tuple
+
 from common.params import Params
 from common.basedir import BASEDIR
 from selfdrive.version import is_comma_remote, is_tested_branch
@@ -13,9 +17,9 @@ from cereal import car
 EventName = car.CarEvent.EventName
 
 
-def get_startup_event(car_recognized, controller_available, fw_seen):
+def get_startup_event(car_recognized: bool, controller_available: bool, fw_seen: bool) -> int:
   if is_comma_remote() and is_tested_branch():
-    event = EventName.startup
+    event: int = EventName.startup
   else:
     event = EventName.startupMaster
 
@@ -29,15 +33,15 @@ def get_startup_event(car_recognized, controller_available, fw_seen):
   return event
 
 
-def get_one_can(logcan):
+def get_one_can(logcan: messaging.SubSocket) -> capnp.lib.capnp._DynamicStructReader:
   while True:
     can = messaging.recv_one_retry(logcan)
     if len(can.can) > 0:
       return can
 
 
-def load_interfaces(brand_names):
-  ret = {}
+def load_interfaces(brand_names: Dict[str, List]) -> Dict[str, Tuple]:
+  ret: Dict[str, Tuple] = {}
   for brand_name in brand_names:
     path = f'selfdrive.car.{brand_name}'
     CarInterface = __import__(path + '.interface', fromlist=['CarInterface']).CarInterface
@@ -57,7 +61,7 @@ def load_interfaces(brand_names):
   return ret
 
 
-def _get_interface_names():
+def _get_interface_names() -> Dict[str, List]:
   # read all the folders in selfdrive/car and return a dict where:
   # - keys are all the car names that which we have an interface for
   # - values are lists of spefic car models for a given car
@@ -76,11 +80,11 @@ def _get_interface_names():
 
 # imports from directory selfdrive/car/<name>/
 interface_names = _get_interface_names()
-interfaces = load_interfaces(interface_names)
+interfaces: Dict[str, Tuple] = load_interfaces(interface_names)
 
 
 # **** for use live only ****
-def fingerprint(logcan, sendcan):
+def fingerprint(logcan: messaging.SubSocket, sendcan: messaging.PubSocket) -> Tuple:
   fixed_fingerprint = os.environ.get('FINGERPRINT', "")
   skip_fw_query = os.environ.get('SKIP_FW_QUERY', False)
 
@@ -166,7 +170,7 @@ def fingerprint(logcan, sendcan):
   return car_fingerprint, finger, vin, car_fw, source, exact_match
 
 
-def get_car(logcan, sendcan):
+def get_car(logcan: messaging.SubSocket, sendcan: messaging.PubSocket) -> Tuple:
   candidate, fingerprints, vin, car_fw, source, exact_match = fingerprint(logcan, sendcan)
 
   if candidate is None:
